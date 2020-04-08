@@ -5,6 +5,7 @@ This is a data analytics report on Shark Control Program Catch Statistics from t
 
 2 Research questions were investigated:
 - Correlations between the water temperature and the location
+![Screenshot 2020-04-08 at 7 51 47 PM](https://user-images.githubusercontent.com/24476996/78770776-6272b880-79d2-11ea-833f-d430abdb9215.png)
 
 
 - Correlation between length of tiger sharks and the water temperature.
