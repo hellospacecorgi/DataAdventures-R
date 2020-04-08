@@ -1,0 +1,265 @@
+---
+title: "Reproducible report on Shark Control Program Catch Statistics"
+author: "Student(s) SID: 460437466, 470378281, 440126393"
+subtitle: "Project 2"
+date: "Lab W16A Group 3 | Thursday & Friday | 4-6 pm | Carslaw Computer Lab 610"
+output:
+  html_document:
+    fig_caption: yes
+    number_sections: yes
+    self_contained: yes
+    theme: flatly
+    toc: true
+    toc_depth: 3
+    toc_float: true
+    code_folding: hide
+---
+
+<br>
+
+# Executive Summary
+
+The report first provides an initial data analysis on the Shark Control Program Catch Statistics. The dataset was retrieved from the Agriculture and Fisheries Department under Queensland Government. Government approved statistics ensures that the data is reliable and precise.
+
+Two research questions were then investigated, focusing on discovering correlations between the water temperature and the location, and the correlation between length of tiger sharks and the water temperature. 
+
+Main discoveries include identifying locations in which sharks appear in the largest and hottest water temperature ranges, and no evidence of linear correlation between length of tiger sharks and water temperature.
+
+<br>
+
+# Full Report
+
+## Initial Data Analysis (IDA)
+
+```{r}
+# Calling CSV file "sharks"
+sharks = read.csv("sharks.csv")
+
+# Quick look at top 5 rows of data
+head(sharks)
+
+## Size of data
+dim(sharks)
+```
+According to the given dataset, there are 11 irrelevant entries (N/A) are presented ranging from row 533 to 543.
+
+
+```{r}
+## R's classification of data
+class(sharks)
+
+## R's classification of variables
+str(sharks)
+sapply(sharks, class)
+```
+
+<p style="font-weight:bold;">Background</p>
+
+Dataset retrieved from the Queensland Goverment shark control program
+(https://www.data.qld.gov.au/dataset/shark-control-program-shark-catch-statistics/resource/5c6be990-3938-4125-8cca-dac0cd734263)
+
+Dataset is accurate and reliable as it originates from the Queenslands government website. The dataset was created by the SHARK CONTROL PROGRAM for better understanding of various species of sharks and public safety.
+
+Possible limitations would be that there were no general ideas on what specific data were needed to validate their hypothesis. A target was set by the research team and the data were moulded around it.
+
+
+
+<p style="font-weight:bold;">Variables</p>
+
+Qualitative :
+
+- Nominal Data: Species name, location
+
+- Ordinal Data: Date, Day of week
+
+Quantative :
+
+- Continuous Data: Water Temp(C), longitude and latitude
+
+- Discrete Data: Length(m), Month
+
+The rows respresents the species name of the shark caught and other relevant data recorded. 
+The columns represents the measured variables i.e.Date, Species name, Water temp(C),etc. 
+However, the 'X' variable appears in the output is not part of the dataset that is needed to assess, it is simply just a row numbers generated in CSV file.
+
+
+<p style="font-weight:bold;">Stakeholders</p>
+
+Since public safety is directly affected by the amount of shark activties around the beaches, possible stakeholders would be the lifeguards stationed at those specified beaches, surfers who often surf at those specified beaches as stated in dataset, and marine biologists who are interested in researching on various species of sharks and their behaviour such as migrations during certain period and water temperatures.
+
+
+<p style="font-weight:bold;">Assesement</p>
+
+Since the data is recorded and created under the observation of the Queensland Government, the data would be credible and reliable. Some limitations to the data would be missing out on the gender of the shark species where it might be crucial to determine the shark activities at recorded locations. For example, during mating seasons, more sharks of certain species would can be found at certain locations at a higher frequency as comapared to other shark species. Also, there are 2 'unknown' sharks entries presented in the dataset, which might give less insight compared to other entries as it fails to categorise the species of sharks spotted.
+
+<br>
+
+## Research Question 1
+<p style="font-weight:bold;">Question</p>
+
+Is there a relation between desired water temperature and location of sharks?
+
+<p style="font-weight:bold;">Summaries</p>
+
+We first investigate the quantitative variable, water temperature, by looking at the summary statistics.
+
+```{r}
+# Graphical and/or numerical summaries
+## Summary statistics of water temp only
+summary(sharks$Water.Temp..C.)
+```
+
+The average mean temperature is 24.83°C.
+
+We then investigate the qualitative variable, location of sharks spotted, by a numerical summary in frequency table.
+
+```{r}
+## Frequency table showing of sharks perr location recorded
+## Table is sorted in increasing order
+locationT = sort(table(sharks$Location), increasing = T)
+locationT
+```
+
+Tannum Sands has the highest number of sharks with 52 entries.
+
+Comparative boxplots describe the relationship between these variables:
+
+```{r}
+## Comparative boxplot showing water temperature where sharks are spotted by location
+par(mar = c(13,4,4,1)) #bottom, left, top, right margin
+boxplot(sharks$Water.Temp..C. ~ sharks$Location, main = "Water Temperature by Location", ylab = "Water Temperature (Celsius)", xlab = " ", las = 2)
+title(xlab = "Locations", line = 10, cex.lab = 1.2)
+
+```
+
+Broad Beach has the largest variance in water temperature at which sharks were spotted. With 50% of sharks recorded spread over a range from 18°C to 28°C. Florence Bay has the hottest temperature range from 24.75°C to 30°C.
+Some of the locations have very narrow box plots as there are only 1 or 2 shark entries.
+
+The box plot and the quantile statistics below shows 50% of sharks prefer water temperatures of 23-27°C.
+
+```{r}
+## Boxplot showing Distribution of sharks on different water temp
+boxplot(sharks$Water.Temp..C., ylab = "Water Temperature (Celsius)", main = "The distribution of sharks on different water temperature")
+
+## Numerical summary of IQR for water temperatures
+quantile(as.numeric(sharks$Water.Temp..C.), probs = c(.0, .25, .5, .75, 1), na.rm = TRUE)
+```
+
+<p style="font-weight:bold;">Explanation</p>
+
+Sharks recorded in this assessment proves that water temperature along with location can be an accurate gage of preference. For research we can selectively demonstrate that half the population prefer water of 23°C and 27°C. From there you can select specific species of sharks. They will either be in that range of 23-27°C or out of the range. 
+
+There are many other factors in the sharks population which can change their prefered location. Open water tides and beaches connected to the open ocean are proven to have greater traffic due to the ease of access sharks have from swimming from smaller beaches. Availability of specific food source, human interference such as fishing causes sharks to roam and change their desired location, global warming and many other factors determine whether sharks are found in a certain location and thus water temperature.
+
+<p style="font-weight:bold;">Further Research</p>
+
+Tiger sharks have been readily researched and tracked throughout Australian waters especially in the East. The studies show that tiger sharks have been known to alternate between localise and extensive movements that may encompass a variety of habitats (Holmes et al., 2014). Specific movement paths on the Australian East coast were most often associated with the 200m shelf-edge isobath or mid-continental shelf areas, with infrequent visits to nearshore waters. Sharks used shelf-edge isobath or underwater seamounts as a guide, particularly during broad scale migration (Holmes et al., 2014).
+
+Withdrawal from pleasant NSW waters into subtropical QLD waters occured when water temperatures drop below 19°C  (July-September). Despite a seemingly clear correlation with water temperature, there are other extrinsic factors that may influence shark movements, such as prey availability. Stronger EAC (East Atlantic) currents flowing Southward during the warmer months mark a seasonal biome shift in this region, which influences the distribution of pelagic fishes such as tunas, kingfish, mackerels, and billfishes undoubtedly attracting the tiger sharks to these certain areas (Holmes et al., 2014). Definitely a combination of both location and water temperature along with other factors contribute to tiger sharks' choice of location.
+
+
+## Research Question 2
+
+<p style="font-weight:bold;">Question</p>
+
+Is there a correlation between the length of the tiger sharks and water temperature at which they were spotted?
+
+
+<p style="font-weight:bold;">Summaries and Explanation</p>
+
+According to National Geographic, tiger sharks are the world's most dangerous shark species after the great white shark. The given dataset consists of more than 1/3 entries (207 out of 532 valid entries) under the "Tiger Shark" category. Therefore we have chosen this as a notable subset of interest to investigate on.
+
+The frequency table and bar plot below shows the number of sharks per species recorded, arranged in ascending order.
+
+There are 207 tiger shark entries in total, which is the species with the highest number of sharks recorded in this dataset.
+
+```{r}
+# Graphical and/or numerical summaries
+## Frequency table showing number of sharks per species recorded 
+## Table is sorted in increasing order
+t = sort(table(sharks$Species.Name),increasing = T)
+t
+
+## Single barplot showing number of sharks per species recorded
+par(mar = c(16,4,4,1))
+barplot(t, xlab = "", ylab = "Number of sharks", main = "Number of Sharks Per Species Recorded", las = 2, cex.main = 1.2, cex.lab = 1.2, cex.axis = 1, col = "deepskyblue2")
+title(xlab = "Species of Sharks", line = 13, cex.lab = 1.2)
+
+```
+
+To begin our investigation, we have extracted a subset consisting of only entries relating to tiger sharks from the larger dataset.
+
+```{r}
+# extracting subset of Tiger Sharks entries 
+tiger = subset(sharks, Species.Name == 'TIGER SHARK')
+
+# Dimensions of subset- 207 rows and 11 columns
+dim(tiger)
+```
+
+The following are numerical summaries of water temperature and length of tiger sharks spotted. 50% of tiger sharks are spotted in water temperature ranging from 23 to 27 degree Celsius, with median at 25 degree Celsius. 50% of tiger sharks have length 1.95 to 3.12 metres, with median of 2.37 metres.
+```{r}
+# summery statistics showing distribution of data 
+summary(tiger$Water.Temp..C.)
+summary(tiger$Length..m.)
+
+```
+
+We use a scatter plot as graphical summary to consider the relation between the two quantitative variables. A point of average is plotted on the graph to indicate the centre.
+
+```{r}
+# Scatter plot showing relation between tiger shark length and water temp
+plot(tiger$Water.Temp..C., tiger$Length..m., main = "Correlation between Tiger Shark Length and Water Temperature", xlab = "Water Temperature (Celsius)", ylab = "Tiger Shark Length (Metres)", col = "blue")
+
+# Point of average (Centre)
+points(mean(tiger$Water.Temp..C.), mean(tiger$Length..m.), col = "indianred", pch = 19, cex = 2)
+legend("topright", c("point of averages (Centre)"), col = "indianred", pch = 19)
+
+```
+
+<p style="font-weight:bold;">Statistical methods</p>
+
+We have chosen linear regression line as our statistical method to assess whether there is a correlation between the two quantitative variables.
+
+The correlation coefficient is given by the following:
+```{r}
+# Linear regression
+## Correlation coefficient 
+cor(tiger$Water.Temp..C., tiger$Length..m.)
+
+
+```
+
+A negative correlation indicates that as water temperature increases, the length of the tiger sharks spotted decreases. However -0.047 is very far away from -1 and 1, showing no evidence of a linear relationship, hence the two variables are not correlated.
+
+The scatter plot and regression line below is a graphical summary of the relation between tiger shark lengths and water temperatures. The data points are not clustered tightly around the regression line indicating a very weak association.
+
+```{r}
+## Scatter plot with regression line
+plot(tiger$Water.Temp..C., tiger$Length..m., main = "Correlation between Tiger Shark Length and Water Temperature", xlab = "Water Temperature (Celsius)", ylab = "Tiger Shark Length (Metres)", col = "blue")
+L = lm(tiger$Length..m. ~ tiger$Water.Temp..C.)
+abline(L, col = "indianred")
+
+```
+
+A summary of the linear model is provided below, providing model parameters to indicate how good the model is.
+```{r}
+## Summary of the liear model
+summary(L)
+
+```
+<p style="font-weight:bold;">Conclusion</p>
+
+Our investigation shows that the length of tiger sharks and the water temperature they were spotted shows no linear relationship and are not correlated, as concluded from a very small and weak correlation coefficient and corresponding linear regression line from the linear model.
+
+
+# References
+
+The State of Queensland; Agriculture and Fisheries. (n.d.). Shark Control Program Shark Catch Statistics by year - 2001-2016- Shark Control Program catch statistics - open Data Portal: Queensland Government. Retrieved from https://www.data.qld.gov.au/dataset/shark-control-shark-catch-statistics/resource/5c6be990-3938-4125-8cca-dac0cd734263
+
+Holmes, B. J., Pepperell, J. G., Griffiths, S. P., Jaine, F. R. A., Tibbetts, I. R., & Bennett, M. B. (2014). Tiger shark (Galeocerdo cuvier) movement patterns and habitat use determined by satellite tagging in eastern Australian waters. Marine Biology, 161(11), 2645–2658. doi: 10.1007/s00227-014-2536-1 Retrieved from https://link.springer.com/article/10.1007/s00227-014-2536-1
+
+Tiger Shark.(2018, September 21). Retrieved from https://www.nationalgeographic.com/animals/fish/t/tiger-shark/
+
+
+<br>
