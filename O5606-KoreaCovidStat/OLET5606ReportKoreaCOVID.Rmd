@@ -1,0 +1,277 @@
+---
+title: "OLET5606 Data Wrangling - Project Report"
+subtitle: "Topic: Reproducible Report on COVID-19 Korea Patient Information "
+author: "Student: Hiu Wun Flora Chan SID: 470378281"
+date: "University of Sydney 2020 | 6th July 2020"
+output:
+  html_document:
+    number_sections: yes
+    self_contained: yes
+    theme: flatly  # Style sheet (eg colour and font)
+    css: 
+      - https://use.fontawesome.com/releases/v5.0.6/css/all.css
+    toc: true  # Table of contents
+    toc_depth: 3
+    toc_float: true
+    code_folding: hide
+---
+<style>
+h2 { /* Header 2 */
+    font-size: 22px
+}
+</style>
+
+<style>
+h3 { /* Header 3 */
+    font-size: 18px
+}
+</style>
+
+```{r setup, include=FALSE}
+library(knitr)
+knitr::opts_chunk$set(tidy = FALSE, 
+                      message = FALSE,
+                      warning = FALSE,
+                      echo = TRUE, 
+                      fig.width=8,
+                      fig.height=6,
+                      fig.align = "center",
+                      fig.retina = 4)
+```
+
+# Executive Summary
+
+This report investigates the dataset PatientInfo.csv from Korean research project group Data Science for COVID-19 (DS4C) to provide insights in regards to COVID-19 patient information in Korea. It first provides a initial data analysis on the dataset, where provenance and limitation was assessed as relevant and trusted to a certain extent as the dataset is a reprocessed collection based on government official reports. Domain knowledge on COVID-19 impact and Korea repsonse to the pandemic is also provided. Missingness was explored and presented to acknowledge the limitation of the dataset.
+
+Two research questions were then investigated, focusing on simliarities across patient age groups in provinces with most confirmed cases, and trend in major patient infection sources over time in Korea. Main discoveries include the 20s age group having the highest number of patients, and the change in trend in infection sources with regards to local cluster cases and policies.
+
+# Exploring the Dataset
+
+## Data Provenance, assessment and limitation
+<p style="font-weight:bold;">Data Provenance: Content, Management and Use</p>
+The dataset PatientInfo.csv is published by Jihoo Kim, chief research director of the Korean research project group DS4C, and retrieved via their Kaggle dataset publish page (https://www.kaggle.com/kimjihoo/coronavirusdataset?select=PatientInfo.csv), as part of a larger collection of datasets with information in regards to COVID-19 pandemic in Korea, where it was published with license CC BY-NC-SA 4.0. As documented by the research group, patient information records are based on official reports released by the government department Korean Centre for Disease Control and Prevention (KCDC) and other local governments. Documentation on dataset structure and variables description can be access via the research group's Kaggle official kernel.
+
+<p style="font-weight:bold;">Assessment of data and Limitation</p>
+The dataset has high relevance and understandability, it provides information on patient demographic information, with detailed documentation on data structure and variables.
+
+Limitation on trustworthiness should be acknowledged, as although there is detailed documentation on how the dataset was built, involved researchers were mainly university students and not professional researchers. However, it should also be noted that this dataset is well recognised by the Korean data science community, being sponsored by industry institutions as well as being cited under other researches, and hence can be regarded as reliable to a certain extent even though it is not published directly by the government.
+
+As the dataset is reprocessed from government reports, there is also limitation on the coverage of testing and information collection done by the government, and hence has limited representation of the actual entire patient population in Korea.
+
+## Domain knowledge
+The COVID-19 global pandemic refers to the spread of an infectious disease caused by severe acute respiratory syndrome coronavirus (Australian Government Department of Health, 2020). The disease was first identified in December 2019 in Wuhan, China and since then more than 10 million cases have been reported globally, resulting in more than 500,000 deaths, and has been an ongoing pandemic as of date.
+
+There is no known effective medical treatment towards the disease, which results in challenges faced by governments and communities in handling the pandemic. The disease is known to be asymptomatic, where disease carriers may not show symptoms, and has a high case fatality rate in patients of older age groups (Whiting, 2020).
+
+Korea's response to the pandemic was cited as a model example in controlling the spread of the disease with extensive testing and control policies (Bendix, 2020).
+
+## Explore the data structure
+
+The dataset has 5165 patient information records, with 14 variables listed below.
+```{r}
+library(tidyverse)
+library(lubridate)
+library(naniar)
+library(dplyr)
+
+kdata <- read_csv("Patientinfo.csv")
+dim(kdata)
+names(kdata)
+
+```
+
+The classes of variables is listed below, where majority are qualitative variables being classified as chr, with patient_id and contact_number as num class.
+```{r}
+str(kdata)
+```
+Note that for variables related to dates, such as symptom_onset_date, confirmed_date etc, the data class is of chr in the original dataset, where the Date format might be more appropriate for data analysis.
+
+## Look for outliers and missing data
+
+Majority of the patients are Korean citizens, we shall limit our scope in investigation to this subset to give more significant insights.
+```{r}
+# Patient cases by country showing 5123 out of 5165 of patient records are Korean citizens
+kdata %>% group_by(country) %>% tally() %>% arrange(desc(n))
+```
+
+```{r}
+# This table shows a summary on missing values in the dataset.
+miss_var_summary(kdata)
+
+# This is a visualisation of the combined missing values in the dataset.
+vis_miss(kdata, warn_large_data = FALSE)
+```
+Some variables have high missingness of over 50%, they are deceased_date, symptom_onset_date, contact_number, infected_by and released_date. These might be because not every patient have relevant records regarding these stages, for example, only a small percentage of recorded patients died from the disease, hence the variable deceased_date has a high missingness of 98% as it does not apply to majority of the recorded patients.
+
+Other variables such as age, sex, infection_case have moderate level of missingness of from around 17% to around 26%. This provides indication to wrangle and filter the dataset to extract relevant subsets of records for our investigation.
+
+Variables regarding geographic information of patients and the confirmed_date variable have low missingness.
+
+Overall, the dataset has 34.4% missingness across all variables.
+
+# Research Question 1 - [Are there similarities in patient age group distribution across the top 3 provinces in Korea with most confirmed cases?]
+
+## Address stakeholders
+
+We further limit our scope to the top 3 provinces in Korea with most confirmed cases to utilise the relevance of the dataset. 
+ 
+```{r}
+# Patient cases by province showing majority of cases are from top 3 provinces
+kdata %>% filter(country == 'Korea', is.na(age) == FALSE) %>% group_by(province) %>% tally() %>%  arrange(desc(n))
+
+```
+
+Korea was cited as being effective in controlling the spread through extensive testing regardless of symptom presence (Bendix, 2020). Insights might help researchers or the government to better target potential patients and treatments.
+
+## Wrangle your data to explore your research question
+
+First, we subset patients with country as Korea and age group recorded. 
+
+```{r}
+# is.na(age) == FALSE filters rows with age variable that is not NA
+kdata %>% filter(country == 'Korea', is.na(age) == FALSE)
+```
+
+Then, to find provinces with the  most number of cases, we group by province, and list counts in descending order. 
+
+```{r}
+# Count and list number of patients in provinces in order
+kdata %>% filter(country == 'Korea', is.na(age) == FALSE) %>% group_by(province) %>% tally() %>% arrange(desc(n))
+```
+The top 3 provinces with most patients are Gyeongsangbuk-do, Gyeonggi-do and Seoul.
+
+Next, ordering to age groups was added by changing the variable from class chr to factor, so that the ordering is in ascending order of age groups instead of alphabetical.
+```{r}
+# Change age to factor and add levels to age groups
+kdata$age <- factor(kdata$age, levels=c("0s", "10s", "20s", "30s", "40s", "50s", "60s", "70s", "80s", "90s", "100s"))
+```
+
+## Data visualisations
+To answer the question, we filter the dataset to the top 3 provinces, and produce a comparative bar plot to show the distribution across these provinces.
+
+```{r}
+# Comparative bar plot showing age group distribution in top provinces
+kdata %>% filter(country == 'Korea', is.na(age) == FALSE, province == 'Seoul' | province == 'Gyeongsangbuk-do' | province == 'Gyeonggi-do') %>% ggplot(aes(province, fill=as.factor(age))) + geom_bar(position="dodge") + scale_fill_discrete("Age Groups") + labs(x="Provinces in Korea", y="Number of Patients", title="Number of patients by age groups across Korean provinces with most confirmed cases")
+```
+There is similarity in patient age group distribution across top provinces, where the 20s age group has the most number of patients.
+
+<p style="font-weight:bold;">Follow up investigation: Distribution of number of deceased patients across age groups in Korea</p>
+
+It is observed that elderlies have a high case fatality rate (Whiting, 2020). Let us see whether the number of deceased patients in Korea follow this observation as a follow up investigation.
+
+```{r}
+# Provinces with deceased patients arranged in order
+kdata %>% filter(country == 'Korea', is.na(deceased_date) == FALSE, is.na(age) == FALSE) %>% group_by(province) %>% tally() %>% arrange(desc(n))
+
+# Comparative bar plot showing deceased patients age group distribution in top 2 provinces
+kdata %>% filter(country == 'Korea', is.na(deceased_date) == FALSE, is.na(age) == FALSE, province == "Gyeongsangbuk-do" | province == "Daegu") %>% ggplot(aes(province, fill=as.factor(age))) + geom_bar(position="dodge") + scale_fill_discrete("Age Groups") + labs(x="Provinces in Korea", y="Number of Deceased Patients", title="Number of deceased patients by age group in provinces with most deaths")
+```
+The barplot shows that age groups 70s and 80s have the highest number of deceased patients, this supports the observations. Combining insights on distribution of confirmed patients, this gives insights to how younger patients might be carriers of the disease even though they have a lower case fatality rate (Sadler, 2020), and justifies extensive testing to control the spread by identifying asymptomatic carriers (Bendix, 2020).
+
+## Conclusion to the research question
+
+Similarities were found in age group distributions across top provinces, where the 20s age group has the most number of confirmed patients, and the age groups 70s and 80s have the most number of deceased patients. 
+
+# Research Question 2 - [What is the trend in top 2 patient infection cases over time in Korea?]
+
+## Address stakeholders
+
+We shall limit our scope to the top two infection sources, namely contact with patient and overseas inflow. According to the Korea pandemic timeline, the Shincheonji Church cluster contributed to the first local community wave (Shin, 2020), we shall also include this in our visualisation.
+
+Insights might  help researchers or government policy makers to analyse or devise pandemic response policies that are effective in controlling infection sources.
+
+```{r}
+# Count and list number of patients by infection_case in order
+kdata %>% filter(country == 'Korea', is.na(infection_case) == FALSE) %>% group_by(infection_case) %>% tally() %>% arrange(desc(n))
+
+```
+
+## Wrangle your data to explore your research question
+
+Firstly, we change variables relating to dates to a more appropriate format Date. 
+```{r}
+# Change format from chr to Date
+kdata <- kdata %>% 
+        mutate(`symptom_onset_date` = dmy(`symptom_onset_date`),`confirmed_date` = dmy(`confirmed_date`), `released_date` = dmy(`released_date`), `deceased_date` = dmy(`deceased_date`))
+```
+
+Then, for cleaner visualisation, we create a new variable Month to group cases by their recorded month in confirmed_date, and order Months in chronological instead of alphabetical order. 
+```{r}
+# Create new variable Month using confirmed_date
+kdata <- kdata %>%
+        mutate(`Month` = month(`confirmed_date`))
+
+# Add order to Month
+
+kdata <- kdata %>% 
+  mutate(Month = factor(month.name[Month], levels = month.name)) 
+
+```
+
+Lastly, we filter patients from the top infection sources, count the respective cases for each source across months and store it in a new vector.
+```{r}
+
+# Vector to store filtered subset of selected infection_case patients
+count <- kdata %>% filter(country == 'Korea', is.na(infection_case) == FALSE, infection_case == 'contact with patient'| infection_case == 'overseas inflow' | infection_case == 'Shincheonji Church') %>% select(confirmed_date, Month, infection_case) %>% group_by(Month, infection_case) %>% tally()
+
+count
+
+```
+
+## Data visualisations
+To answer the question, this  line plot shows trends in patients from different infection sources. The Shincheonji Church infection is seen to be responsible for the 567 of cases peak in March for contact with patient,  subsequent to the cluster appearing in February.
+
+```{r}
+# Line plot showing trends in number of patients from major infection sources over time
+count %>% ggplot(aes(x = Month, y = n, group = infection_case, color = infection_case)) + geom_line() + geom_point(aes(color=infection_case)) + labs(x="Months", y="Number of Patients", title="Number of patients by major infection cases over time in Korea")
+
+# Numbers in February and March for contact with patient and overseas inflow
+count %>% filter(Month == "March" | Month == "February") %>% group_by(Month, infection_case) %>% tally()
+
+```
+Both infection sources for contact with patient and overseas inflow peaked in March, decreased from March to April and May, with a second peak in June.
+
+The Shincheonji Church cluster was seen as contributing to local community spread (Shin, 2020), where it contributed 82 cases in February as a source. From the graph, we can see that the peak in March for contact with patient recorded 567 cases after the cluster appeared in February.
+
+According to the Korea pandemic timeline (Cha, 2020), the decrease for the two infection cases is likely due to global travel bans and local social distancing measures, where it is effective as numbers have decreased. The second peak in June is observed as the numbers increase after ease of restriction late May (Jones, 2020).
+
+## Conclusion to the research question
+
+The top 2 patient infection cases, contact with patient and overseas inflow, peaked in March, decreased from March to April and May respectively, and saw a second increase in June. 
+
+# Reflection on Data Wrangling
+
+Data wrangling was useful in exploring the missingness, manipulating, reshaping and visualising the dataset. 
+
+R packages used for data wrangling
+
+- naniar for missingness
+- dplyr for data manipulation, subsetting, mutating and grouping data
+- ggplot2 for data visualisation to produce histograms, comparative bar plots, line plots
+
+Summarising and visualising missingness in the initial data exploration helped me make more conscious decisions in choosing variables of interest for the research questions based upon the relevance of the dataset. In investgating the research questions, I utilised the age group, confirmed_date, location to subset and mutate the dataset, filtering patient records by country and excluding NA value records, and grouping them by age groups or provinces.
+
+Since the dataset I have chosen is composed mainly of qualitative variables, dplyr's tally() was useful in counting observations filtered by conditions, and I was able to get numerical statistics from the dataset to analyse significant variables based on number of observations, such as top provinces with most number of patients or top infection sources, as well as generate visualisations of mixed variables. Reformatting the variables was useful in ordering categories, such as age group or Month, where originally they were classified as chr in the dataset, this makes the dataset more logical and cleaner for analysis and visualisation.
+
+# References
+<p style="font-weight:bold;">Access to dataset</p>
+Kim, J. (2020, July 01). Data Science for COVID-19 (DS4C) in Korea. Retrieved July 02, 2020, from https://www.kaggle.com/kimjihoo/coronavirusdataset?select=PatientInfo.csv
+
+Lee, J. (n.d.). DS4C (Data Science for COVID-19) Project. Retrieved July 02, 2020, from https://github.com/ThisIsIsaac/Data-Science-for-COVID-19
+
+<p style="font-weight:bold;">Domain knowledge</p>
+Australian Government Department of Health. (2020, July 02). What you need to know about coronavirus (COVID-19). Retrieved July 06, 2020, from https://www.health.gov.au/news/health-alerts/novel-coronavirus-2019-ncov-health-alert/what-you-need-to-know-about-coronavirus-covid-19
+
+<p style="font-weight:bold;">Media articles for research question 1</p>
+Bendix, A. (2020, March 6). South Korea has tested 140,000 people for the coronavirus. That could explain why its death rate is just 0.6% — far lower than in China or the US. Retrieved July 06, 2020, from https://www.msn.com/en-au/news/other/south-korea-has-tested-140000-people-for-the-coronavirus-that-could-explain-why-its-death-rate-is-just-06-25-e2-80-94-far-lower-than-in-china-or-the-us/ar-BB10OyZU
+
+Sadler, R. (2020, March 16). Coronavirus: New graph shows people in their 20s are more asymptomatic and not being tested for COVID-19. Retrieved July 06, 2020, from https://www.newshub.co.nz/home/world/2020/03/coronavirus-new-graph-shows-people-in-their-20s-are-more-asymptomatic-and-not-being-tested-for-covid-19.html
+
+Whiting, K. (2020, March 12). An expert explains: How to help older people through the COVID-19 pandemic. Retrieved July 06, 2020, from https://www.weforum.org/agenda/2020/03/coronavirus-covid-19-elderly-older-people-health-risk/
+
+<p style="font-weight:bold;">Media articles for research question 2</p>
+Cha, V., Kim, D. (2020, March 27). A Timeline of South Korea's Response to COVID-19. Retrieved July 06, 2020, from https://www.csis.org/analysis/timeline-south-koreas-response-covid-19
+
+Jones, S., Anderson, C. (2020, June 23). Global report: South Korea has Covid-19 second wave as Israel ponders new lockdown. Retrieved July 06, 2020, from https://www.theguardian.com/world/2020/jun/22/coronavirus-global-report-new-covid-19-cases-surge-south-korea-israel
+
+Shin, Y., Berkowitz, B., Kim, M. (2020, March 25). How a South Korean church helped fuel the spread of the coronavirus. Retrieved July 06, 2020, from https://www.washingtonpost.com/graphics/2020/world/coronavirus-south-korea-church/?itid=ap_youjinshin
