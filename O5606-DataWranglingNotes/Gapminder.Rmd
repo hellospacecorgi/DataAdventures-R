@@ -1,0 +1,269 @@
+---
+title: "OLET5606 Data Wrangling Notes"
+subtitle: "Module 3 Gapminder Case Study"
+author: "Flora Chan"
+date: "4th July 2020"
+output:
+  html_document:
+    number_sections: yes
+    self_contained: yes
+    theme: flatly  # Style sheet (eg colour and font)
+    css: 
+      - https://use.fontawesome.com/releases/v5.0.6/css/all.css
+    toc: true  # Table of contents
+    toc_depth: 3
+    toc_float: true
+    code_folding: hide
+---
+<style>
+h2 { /* Header 2 */
+    font-size: 22px
+}
+</style>
+
+<style>
+h3 { /* Header 3 */
+    font-size: 18px
+}
+</style>
+
+```{r setup, include=FALSE}
+library(knitr)
+knitr::opts_chunk$set(tidy = FALSE, 
+                      message = FALSE,
+                      warning = FALSE,
+                      echo = TRUE, 
+                      fig.width=8,
+                      fig.height=6,
+                      fig.align = "center",
+                      fig.retina = 4)
+```
+
+# The Gapminder data
+
+Gapminder is an independent Swedish foundation with no political, religious or economic affiliations, providing many datasets on the state of the world around us. We will be wrangling with the Gapminder dataset for this module, provided in the R package `gapminder`.
+
+The gapminder dataset provides data for 142 countries, with values for life expectancy, GDP per capita,
+and population, every five years, from 1952 to 2007.
+
+By the end of this module we will be able to produce a graph exploring income per person over the years for four different countries (US, Iran, China, and Nigeria). 
+
+```{r}
+library(tidyverse)
+library(lubridate)
+library(naniar)
+library(gapminder)
+
+gapminder
+gapminder %>% names()
+```
+## Tibble
+
+You can think of a tibble as an enhanced data frame. One of the main differences between data frames and tibbles is the way they print data. Tibbles have a refined print method that shows only the first 10 rows, and all the columns that fit on screen. Data frames on the other hand will print all rows, which isn't very useful if your data frame is very big!
+
+We see here that we have a tibble of size 1704 observations relating to 6 features. The data is in tidy format, with variables corresponding to columns, and observations corresponding to rows.
+
+## R Packages
+
+Throughout this module, we will explore a variety of R packages to help us wrangle our data and make the most sense out of it. These are just a selection out of many R packages that exist, and you might not need to use all of them in your analysis for your own data.  These packages help us do the following:
+
+- readr and readxl to help us read in data into R;
+- magrittr to help us write readable R code;
+- dplyr to help us wrangle and obtain essential summaries of our data;
+- tidyr to help us rearrange our data into usable formats;
+- ggplot2 to help us visualise our data;
+- lubridate to help us wrangle dates in R;
+- and naniar, to help us look at missing values in R.
+
+# Data Wrangling with dplyr
+## Subsetting dataframes
+
+- filter() filter rows that satisfy certain conditions
+- select() select columns by variable names
+
+```{r}
+gapminder %>% filter(year == "1997", continent == "Asia", lifeExp > 75)
+```
+Looking at rows corresponding to the year 1997 in Asia with life expectancy greater than 75.
+
+```{r}
+gapminder %>% filter(year == "1997", continent == "Asia", lifeExp > 75) %>% select(country, lifeExp) 
+```
+Looking at only the country and life expectancy variable that matches the previous condition.
+
+```{r}
+gapminder %>% filter(year == "1997", continent == "Asia", lifeExp > 75) %>% select(-lifeExp, -continent, -year) 
+```
+Using - to deselect variables.
+
+## Mutating dataframes
+
+- mutate() create new columns by using existing information from other columns
+- arrange() arrange rows within data frame
+
+```{r}
+gapminder <- gapminder %>% mutate(gdp = pop*gdpPercap)
+```
+Notice here we assigned this mutated data back to the same variable gapminder. gapminder now has a new variable gdp added, that is the product of the two existing variables pop and gdpPercap.
+
+Showing rows by lowest to highest gdp in 2007 excluding continent, pop and gdpPercap variables.
+```{r}
+gapminder %>% filter(year == "2007") %>% arrange(gdp) %>% head() %>% select(-pop, -gdpPercap, -continent, -year)
+head(gapminder)
+```
+
+Same data but in descending order
+```{r}
+gapminder %>% filter(year == "2007") %>% arrange(desc(gdp)) %>% head() %>% select(-pop, -gdpPercap, -continent, -year)
+```
+
+## Grouping and summarising dataframes
+- group_by() adds extra structure to your dataset, and can be useful if you want to apply a function independently within groups of observations (where the groups are specified by a categorical variable in your data frame). All functions that you apply to the grouped data frame are applied separately to each group until you specify an ungroup() function.
+- summarise() defines variables that are summary statistics of others.
+```{r}
+gapminder %>% group_by(continent)
+
+```
+The key difference is now the addition of Groups: continent [5] to the output.  In the background, the group_by() function has essentially worked by splitting your data frame into 5 separate data frames based on the categorical variable you specify, in this case, continents.
+
+tally() counts rows, combined with group_by() we can count how many rows there are for each continent group:
+```{r}
+gapminder %>% group_by(continent) %>% tally()
+```
+
+This will show how many rows have lifeExp higher than the average lifeExp for their continent group:
+```{r}
+gapminder %>% group_by(continent) %>% filter(lifeExp > mean(lifeExp))  %>% tally()
+```
+
+If we had just filtered rows without group_by(), it will calculate the average lifeExp for the entire gapminder dataset instead of respective continent groups:
+```{r}
+gapminder %>% filter(lifeExp > mean(lifeExp)) %>% count(continent)
+```
+
+This shows the average lifeExp and total gdp over years.
+```{r}
+gapminder %>% group_by(year)  %>% summarise(mean_lifeExp = mean(lifeExp), total_gdp = sum(gdpPercap*pop))
+```
+
+summarise_at() provide summaries of many variables at the same time. Here we want summaries of the minimum and maximum life expectancy and total gdp.
+```{r}
+gapminder %>% 
+  filter(year %in% c(1977, 2002)) %>%
+  group_by(continent, year) %>%
+  summarise_at(vars(lifeExp, gdpPercap), list(~min(.), ~max(.)))
+```
+
+# Reshaping and Basic Visualisation with tidyr and ggplot2
+## Reshaping dataframes
+
+- pivot_longer() tidies datasets and makes them longer by rearranging variables in the columns and observation in rows.
+
+Graph of gdpPercap over years for US, China, Nigeria and Iran
+```{r}
+gapminder %>% 
+  filter(country == "United States" | country == "China" | country == "Nigeria"| country == "Iran") %>% 
+  ggplot(aes(x = year, y = gdpPercap, colour = country))+ geom_line() + scale_y_log10() + ggtitle("gdpPercap from 1950 - 2007")
+```
+However, applying dplyr functions is not always enough to be able to get data into a form ready for visualisation.
+
+Suppose we want to plot the following:
+```{r}
+group_data <- gapminder %>% group_by(year) %>% summarise(mean_lifeExp = mean(lifeExp), total_gdp = sum(gdpPercap*pop))
+```
+We want to plot both the average life expectancy and total gdp as lines on the same graph. We could try and pipe the summarised data frame directly into the ggplot command, however, we have no clear way to map both average life expectancy AND total gdp to the y variable, and year on the x-axis. 
+```{r}
+group_data %>% pivot_longer(-year, names_to = "summary", values_to = "values") 
+```
+We now have a much longer data frame (twice as many rows as before), with now all the values stored in a variable value and the summary of these values now in summary. 
+
+This is now perfect for ggplot, as the variable value can directly be used for the y variable, and two lines can be generated using the summary variable. We now pipe this directly into ggplot:
+```{r}
+group_data %>% 
+  pivot_longer(-year, names_to = "summary", values_to = "values") %>% 
+  ggplot(aes(x= year, y = values, color= summary)) + geom_line() + facet_wrap(.~summary, scales = "free_y")
+```
+
+- pivot_wider() is the opposite of pivot_longer()
+
+First, define long_form as the long format of our data grouped by year. 
+```{r}
+long_form <- group_data %>% pivot_longer(-year, names_to = "summary", values_to = "values") 
+
+```
+We can then convert back to wide form by telling R that the column names belong in the variable summary, and the values are in a variable called values. And tada! Our original data frame is back!
+```{r}
+long_form %>% 
+  pivot_wider(names_from = summary, values_from = values)
+```
+
+## Gapminder Life Expectancy Plot
+Investigate life expectancy in Europe from 1952 - 2007
+```{r}
+gapminder %>% filter(continent == "Asia") %>% group_by(year) %>% summarize(min_lifeExp = min(lifeExp), max_lifeExp = max(lifeExp)) %>% pivot_longer(-year, names_to = "summary", values_to = "values") %>% ggplot(aes(x = year, y = values, color = summary)) + geom_line(size = 1.25) + ggtitle("Minimum and Maximum Life Expectancies in Asia, 1950 - 2007")
+```
+
+# Pima-Indians Diabetes Dataset
+## Missing Values
+
+select_if(is.numeric) selects columns that are of the numeric class.
+```{r}
+library(purrr)
+library(tidyr)
+library(mlbench)
+
+data(PimaIndiansDiabetes)
+head(PimaIndiansDiabetes)
+PimaIndiansDiabetes %>%
+  select_if(is.numeric) %>% 
+  pivot_longer(everything(),names_to = "variable", values_to = "value") %>% 
+  ggplot(aes(value)) +
+  facet_wrap(~ variable, scales = "free") +
+  geom_histogram() +
+  theme_bw(base_size = 18)
+```
+The histograms above reveal implicit missing values in glucose, pressure, triceps, insulin, and mass (since they can't be zero!). So we convert these explicitly to missing values.
+
+```{r}
+tib <- as_tibble(PimaIndiansDiabetes)
+is.zero <- function(x) { return(x==0); }
+
+# Replace implicit missing values with NAs
+dat <- tib %>%
+  mutate_at(which(colnames(tib)%in%c("glucose","pressure","triceps","insulin","mass")),
+            funs(replace(., is.zero(.), NA)))
+
+# miss_var_summary(dat) summarise the amount of missing values in each variables.
+miss_var_summary(dat)
+# gg_miss_var(dat) shows the relative amounts of missingness.
+gg_miss_var(dat)
+# vis_miss(dat) shows snapshot of overall amount of missingness in the data
+vis_miss(dat) 
+```
+
+## Outliers and identifying skewness
+We can check for skewness by first looking at numerical summaries of the median and mean for the variables in our data.
+```{r}
+dat %>%
+  select_if(is.numeric) %>% 
+  pivot_longer(everything(),names_to = "variable", values_to = "value") %>% 
+  group_by(variable) %>% 
+  summarise(mean = mean(value, na.rm = TRUE), median = median(value, na.rm = TRUE))
+```
+We can also inspect the boxplots of these variables to visualise skewness, and to directly identify outliers.
+```{r}
+dat %>%
+  select_if(is.numeric) %>% 
+  pivot_longer(everything(),names_to = "variable", values_to = "value") %>% 
+  ggplot(aes(value, x = variable)) +
+  facet_wrap(~ variable, scales = "free") +
+  geom_boxplot() +
+  theme_bw(base_size = 18)
+```
+We can see that outliers are present in many of our variables. But what do we do with them? First of all, it is important to note that you can expect outliers in your research and they can be a result of many different factors, including:
+
+- human error (e.g. typing the wrong value into a dataset)
+- measurement or instrument error
+- natural variation.
+
+If outliers are a result of the first two reasons, then they should be excluded from the dataset. However, if the outliers are a result of natural variation then they should be included to ensure the integrity of the data. In fact, they may be very important to the research.

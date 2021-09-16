@@ -1,0 +1,339 @@
+---
+title: "OLET5606 Data Wrangling - Live Lab 1 Worksheet"
+subtitle: "Investigating NYC Water Quality Dataset"
+author: "Student: Hiu Wun Flora Chan SID: 470378281"
+date: "University of Sydney 2020 | 5th July 2020"
+output:
+  html_document:
+    number_sections: yes
+    self_contained: yes
+    theme: flatly  # Style sheet (eg colour and font)
+    css: 
+      - https://use.fontawesome.com/releases/v5.0.6/css/all.css
+    toc: true  # Table of contents
+    toc_depth: 3
+    toc_float: true
+    code_folding: hide
+---
+<style>
+h2 { /* Header 2 */
+    font-size: 22px
+}
+</style>
+
+<style>
+h3 { /* Header 3 */
+    font-size: 18px
+}
+</style>
+
+```{r setup, include=FALSE}
+library(knitr)
+knitr::opts_chunk$set(tidy = FALSE, 
+                      message = FALSE,
+                      warning = FALSE,
+                      echo = TRUE, 
+                      fig.width=8,
+                      fig.height=6,
+                      fig.align = "center",
+                      fig.retina = 4)
+```
+# Executive Summary
+This document has notes on LiveLab1 worksheet on R code and investigation on the NYC Water Quality dataset. It starts with initial data analysis exploration, exploring the dataset's numeric variables, missingness, and outliers, where it should be noted that this dataset has high missingness in the Fluoride (mg/L) variable, and might not be useful for insight regarding Fluoride levels in water samples in the dataset. Types of variables and time period of record were also extracted, and basic modification of dataset in regards to time variables were performed, where new variables were mutated and format was changed.
+
+It then investigate questions in regards to Turbidity, Chlorine and Fluoride levels across Sample Sites, Sample Classes and time. Data wrangling tools such as select(),filter(),group_by() were used to subset and reshape the dataset to provide insights. Visualisation was done using ggplot to produce histograms, boxplots and line graphs to present data trends and comparisons.
+
+A student attempt at practicing data wrangling skills was done at the end to investigate the question of how chlorine readings in different sample classes change over time. Main discovery was the major difference in levels from the Compliance and Operational sample class, where the Operational sample class has a higher range of chlorine levels.
+
+# Load in packages and read in data
+
+```{r}
+library(tidyverse)
+library(lubridate)
+library(naniar)
+library(dplyr) 
+
+data <- read_csv("NYC_Drinking_Water.csv")
+data
+```
+Note how the Sample Date variable is of chr class, we will change it to date format later on.
+Also note how fluoride has a lot of NA values that we will have to clean up.
+
+# Exploratory Data Analysis
+
+The dataset has 72,709 rows with 10 variables, with variable names listed here: 
+```{r}
+names(data)
+```
+
+## Visualising numeric variables
+By using pipe %>% we are not changing the actual dataframe, it shows how the original dataset is processed by functions to produce graphical / numerical summaries.
+
+- select_if(is.numeric) select the variables that are of numeric class
+- pivot_longer() convert the dataset to longer format so that each observation is now 3 rows, each of the Fluoride, Chlorine and Turbidity variables
+- Visualisation: ggplot(aes(value)) lets us generate plots based on values, facet_wrap() lets us plot a different graph for each variable. geom_histogram() plots the histogram data on to the plot. theme_bw() and theme() customises the plot.
+```{r}
+data %>%  
+  select_if(is.numeric) %>% 
+  pivot_longer(everything(),names_to = "variable", values_to = "value") %>% 
+  ggplot(aes(value)) +
+  facet_wrap(~ variable, scales = "free") +
+  geom_histogram() +
+  theme_bw(base_size = 18) +
+  theme(strip.text.x = element_text(size = 8))
+
+```
+
+## Explore missingness using `naniar` package
+
+Using the `naniar` package, explore if any variables are substantially missing.
+
+```{r}
+vis_miss(data, warn_large_data = FALSE)
+```
+Here shows that Turbidity has a small amount of missingness and that the Fluoride variable has a lot of missingness, knowing this we should keep in mind that this will affect our ability to analyse the Fluoride variable data.
+
+## Exploring outliers and skewness
+
+Summary statistics:
+```{r}
+data %>%
+  select_if(is.numeric) %>% 
+  pivot_longer(everything(),names_to = "variable", values_to = "value") %>% 
+  group_by(variable) %>% 
+  summarise(mean = mean(value, na.rm = TRUE), median = median(value, na.rm = TRUE))
+
+```
+- group_by(variable) groups the data into Fluoride, Residual Free Chlorine and Turbidity groups. Then summarise() will provide the numerical summary statistics mean, median for each of the 3 groups.
+- na.rm = TRUE removes NA values.
+
+```{r}
+data %>%
+  select_if(is.numeric) %>% 
+  pivot_longer(everything(),names_to = "variable", values_to = "value") %>% 
+  ggplot(aes(value, x = variable)) +
+  facet_wrap(~ variable, scales = "free") +
+  geom_boxplot() +
+  theme_bw(base_size = 18) +
+  theme(strip.text.x = element_text(size = 8))
+```
+ggplot for each of the variables, this time we create a boxplot with geom_boxplot().
+Here we can see Turbidity has some outliers at ~15, ~27, and ~34, where majority of the values are under 10.
+Similar in Chlorine, where there is a outlier of value -10.0
+
+# What types of variables do we have in our dataset?
+
+summary() gives summary statistics for variables, the length of data, the mean, quartiles, median, min, max and NA's.
+And str() gives the type of variables as well as a sneak peak of data.
+```{r}
+summary(data)
+str(data)
+```
+This dataset has data types character, numeric, hms (Time). Note that Sample Date can be converted to date format.
+
+# What are the range of dates for which this data was collected?
+
+```{r}
+data$`Sample Date` %>% min()
+data$`Sample Date` %>% max()
+```
+This data has date ranges from 1st January, 2015 to 31st December, 2018, given by the minimum and maximum value under the Sample Date variable.
+
+# Basic modification of dataset
+
+## Add information about month of year, weekday, and week of year
+
+First convert `Sample Date` to appropriate lubridate format in month-date-year date format by using mdy('Sample Date') (see how it changes from "chr" to "date" variable), here the same name 'Sample Date' is used to replace the variable (changing the variable type).
+
+```{r}
+data <- data %>% 
+        mutate(`Sample Date` = mdy(`Sample Date`))
+```
+
+Add in extra variables: using hour function from lubridate package to create new variable 'Hour' from 'Sample Time', similarly for 'Week of Year', 'Weekday' and 'Month'
+
+- lubridate::hour() tells R to use the hour() from lubridate package.
+
+- levels = month.name in the mutate() function puts the data in order of months from January to December instead of alphabetical.
+
+```{r}
+data <- data %>%
+        mutate(Hour = lubridate::hour(`Sample Time`), `Week of Year` = week(`Sample Date`),  `Weekday` = wday(`Sample Date`), `Month` = month(`Sample Date`))
+
+# Extension - add order to the months
+
+data <- data %>% 
+  mutate(Month = factor(month.name[Month], levels = month.name)) 
+
+data
+```
+Now the dataset has new variables 'Hour', 'Week of Year', 'Weekday', 'Month'
+
+# Interrogating the data - wrangle the data to answer these questions!
+
+## Which date had the highest Turbidity reading?
+
+```{r}
+data %>% 
+  arrange(desc(`Turbidity (NTU)`)) %>% 
+  select(`Turbidity (NTU)`, `Sample Date`)
+```
+16th January, 2018 had the highest Turbidity with a reading of 33.80 NTU.
+Here we use arrange() to list the Turbidity values in descending order, and select the variable columns that we are interested in with select().
+
+## Which date had the highest reading of Residual Free Chlorine?
+
+```{r}
+data %>%
+  arrange(desc(`Residual Free Chlorine (mg/L)`)) %>% 
+  select(`Residual Free Chlorine (mg/L)`, `Sample Date`)
+```
+22nd August, 2016 had the highest reading of Residual Free Chlorine with a reading of 2.2 mg/L.
+
+## Is there a difference between the median readings for Turbidity, Chlorine, and Fluoride for the different types of sample sites?
+
+```{r}
+data %>% 
+  group_by(`Sample class`) %>%
+  summarise(med_chlorine = median(`Residual Free Chlorine (mg/L)`),
+            med_turbidity = median(`Turbidity (NTU)`, na.rm = TRUE),
+            med_flouride = median(`Fluoride (mg/L)`, na.rm = TRUE))
+```
+Summary statistics for each of the Sample Classes listing their respective median readings for Turbidity, Chlorine, Fluoride. 
+- Median readings for Chlorine spreads over the range 0.39 to 0.75
+- Median readings for Turbidity has a narrower range around 0.70, with outlier median reading for Resample_Operational having 0.98
+- Median readings for Fluoride are from 0.71-0.72, but also has NA values for 3 of the resample classes.
+
+Notice how there are NA values, this might be because of the NA values in the dataset and the function fails to compute a median value out of NA values.
+
+## Create a boxplot to visualise the difference between Entry Point and Operational levels of Residual Free Chlorine.
+
+Restrict the data to the 2 sample class of interest (Entry Point, Operational) by filter().
+```{r}
+data %>% 
+  filter(`Sample class` == "Entry Point" | `Sample class` == "Operational") %>% 
+  ggplot(aes(x = `Sample class`, y = `Residual Free Chlorine (mg/L)`, fill = `Sample class` )) +
+  geom_boxplot() +
+  ggtitle("Residual Free Chlorine (mg/L) for Different Sample Classes") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+We notice that there is higher variability in the Operational samples, and the classes has a similar median.
+
+## Which sample sites have the highest and lowest median readings for each chemical?
+
+Here we create a new dataframe sample_summary where the dataset is grouped by different sample sites.
+```{r}
+sample_summary <- data %>% 
+  group_by(`Sample Site`) %>%
+  summarise(med_chlorine = median(`Residual Free Chlorine (mg/L)`, na.rm = TRUE),
+            med_turbidity = median(`Turbidity (NTU)`, na.rm = TRUE),
+            med_fluoride = median(`Fluoride (mg/L)`, na.rm = TRUE))
+```
+
+Arrange the data by their median for Turbidity in descending order. n() is the number of observation.
+Extracting the top and bottom one in the arranged order list will give us the highest and lowest reading for the variable.
+Use drop_na() to ignore NA values.
+```{r}
+sample_summary %>% 
+  select(`Sample Site`, med_turbidity) %>% 
+  drop_na() %>%
+  arrange(desc(med_turbidity)) %>% 
+  filter(row_number() %in% c(1, n()))
+```
+For Turbidity, sample site 51900 has the highest reading of 1.03 and sample site 3SC26 has the lowest reading of 0.45.
+
+```{r}
+sample_summary %>%
+  select(`Sample Site`, med_fluoride) %>%
+  drop_na() %>%
+  arrange(desc(med_fluoride)) %>% 
+  filter(row_number() %in% c(1, n()))
+
+```
+For Fluoride, sample site 1S04 has the highest reading of 0.81 and sample site 32350 has the lowest reading of 0.69.
+
+```{r}
+sample_summary %>% 
+  select(`Sample Site`, med_chlorine) %>% 
+  drop_na() %>%
+  arrange(desc(med_chlorine)) %>% 
+  filter(row_number() %in% c(1, n()))
+```
+For Chlorine, sample site 1S03A has the highest reading of 0.91 and sample site 77750 has the lowest reading of 0.11.
+
+## Visualise the difference in readings between the top and bottom sites for Turbidity in different ways. Can you find anything interesting about the sites?
+
+```{r}
+sites <- sample_summary %>% 
+  select(`Sample Site`, med_turbidity) %>% 
+  arrange(desc(med_turbidity)) %>% 
+  filter(row_number() %in% c(1, n()))
+
+data %>% 
+  filter(`Sample Site` %in% pull(sites, `Sample Site`)) %>% 
+  ggplot(aes(x = `Turbidity (NTU)`, fill = `Sample Site`)) +
+  geom_histogram()
+```
+Sample site 51900 has the highest median reading, and sample site 3SC26 has lowest median reading for Turbidity. Notice how 51900 has a outlier of value greater than 3.5 NTU.
+
+Line plot showing how the Turbidity reading change over time.
+```{r}
+data %>% 
+  filter(`Sample Site` %in% pull(sites, `Sample Site`)) %>%
+  ggplot(aes(x = `Sample Date`, y = `Turbidity (NTU)`, color = `Sample Site`))+
+  geom_line()
+
+```
+
+Interesting, it seems the site 51900 with the higher median turbidity reading is no longer operational, see how the reading/line stops early 2017.
+
+## How have the median readings for each of the chemicals changed over time?
+
+```{r}
+data %>% 
+  select(`Sample Date`, `Residual Free Chlorine (mg/L)`, `Turbidity (NTU)`, `Fluoride (mg/L)`) %>% 
+  group_by(`Sample Date`) %>% 
+  summarise(med_cl = median(`Residual Free Chlorine (mg/L)`, na.rm = TRUE), med_t = median(`Turbidity (NTU)`, na.rm = TRUE), med_f = median( `Fluoride (mg/L)`, na.rm = TRUE)) %>% 
+  pivot_longer(- `Sample Date`, names_to = "chemical", values_to = "values") %>% 
+  ggplot(aes(x = `Sample Date`, y = values, group = chemical, colour = chemical)) + geom_line()
+```
+There seems to be an inverse relationship between Turbidity and Residual free chlorine readings. Why is this? (Hint - consult the Water Quality Report!)
+
+- Chlorine is used for disinfection in water treatment to kill germs and bacterias, as Chlorine is introduced and increased in water samples, Turbidity levels are decreased as there are less contaminants after disinfection.
+
+## There seems to be seasonality trends in the data. Explore this.
+
+```{r}
+data %>% 
+  group_by(Month) %>% 
+  ggplot(aes(x = Month, y = log(`Turbidity (NTU)`), fill = Month)) +
+  geom_boxplot()
+```
+We can see that the Turbidity level is slightly higher in January to June compared to July to December.
+The seasonal trend in Turbidity level might be related to the raining season in New York, where it usually lasts from Spring to June, where rainfall contributes to increased soil runoff, which is a likely source of Turbidity in drinking water according to the NYC Drinking Water Supply and Quality Report.
+
+# Time to research your own questions about the data!
+
+## How does the chlorine reading in different sample classes change over time?
+
+We will use the median Residual Free Chlorine readings as a summary statistic to conclude records.
+```{r}
+samplesites <- data %>% 
+  group_by(`Sample Site`) %>%
+  summarise(med_chlorine = median(`Residual Free Chlorine (mg/L)`, na.rm = TRUE))
+
+sites <- samplesites %>% 
+  select(`Sample Site`, med_chlorine) %>% 
+  arrange(desc(med_chlorine)) %>% 
+  filter(row_number() %in% c(1, n()))
+            
+data %>% 
+  filter(`Sample Site` %in% pull(sites, `Sample Site`)) %>%
+  ggplot(aes(x = `Sample Date`, y = `Residual Free Chlorine (mg/L)`, color = `Sample class`))+
+  geom_line()
+```
+Overall, there are two main sample classes that have consistent record, where the Compliance sample class has a chlorine level range from 0.0 to 0.5 mg/L (with a outlier record of around 0.7 mg/L in late 2015), and the Operational sample class has chlorine level range from 0.5 to 1.4 mg/L.
+
+We can see that the Operational sample class has higher chlorine levels compared to the Compliance sample class. This might be due to the difference in how much chlorine is needed for disinfection to these sample classes, where Operational sample class might need more chlorine for disinfection and Compliance need less.
